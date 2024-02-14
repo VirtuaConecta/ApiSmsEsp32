@@ -1,0 +1,34 @@
+void conectaWiFi() {
+    const char* ssid = "ITECHMED"; // Substitua pelo SSID da sua rede
+    const char* password = "1t3chm3d@2021"; // Substitua pela senha da sua rede
+
+    // Se o botão for pressionado, prossegue com o WiFiManager
+    // Isso é útil para reconfiguração
+    if (digitalRead(13) == LOW) {
+        // Aqui mantém a lógica atual que você já tem
+        // Sua lógica atual com o WiFiManager
+    } else {
+        SerialMon.println("Tentando conectar ao WiFi...");
+
+        WiFi.begin(ssid, password);
+
+        int tentativas = 0;
+        while (WiFi.status() != WL_CONNECTED && tentativas < 20) { // Tenta por aproximadamente 10 segundos
+            delay(500);
+            SerialMon.print(".");
+            tentativas++;
+        }
+
+        if (WiFi.status() == WL_CONNECTED) {
+            SerialMon.println("Conectado com sucesso!");
+            SerialMon.print("IP Address: ");
+            SerialMon.println(WiFi.localIP());
+            digitalWrite(25,HIGH); //Acende LED AZUL
+              delay(500);
+        } else {
+  //          SerialMon.println("Falha ao conectar ao WiFi. Entrando em modo de configuração...");
+            // Chama o WiFiManager se a conexão falhar
+  //          wifiManager.startConfigPortal("ITECHMED - SMS", "12345678");
+        }
+    }
+192.168.15.15

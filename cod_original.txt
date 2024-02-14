@@ -1,0 +1,245 @@
+#include <Arduino.h>
+#include <HTTPClient.h>
+#include <DNSServer.h> 
+#include <WebServer.h>
+#include <WiFiManager.h> 
+#include <ArduinoJson.h>
+#include <LiquidCrystal.h>
+//#include <Wire.h> 
+// Flag variable to keep track if alert SMS was sent or not
+bool smsSent = false;
+
+// Configure TinyGSM library
+#define TINY_GSM_MODEM_SIM800      // Modem is SIM800
+#define TINY_GSM_RX_BUFFER   1024  // Set RX buffer to 1Kb
+
+#include <StreamDebugger.h>
+#include <TinyGsmClient.h>
+//#include <StreamDebugger.h>
+
+
+// TTGO T-Call pins
+#define MODEM_RST            5
+#define MODEM_PWKEY          4
+#define MODEM_POWER_ON       23
+#define MODEM_TX             27
+#define MODEM_RX             26
+#define I2C_SDA              21
+#define I2C_SCL              22
+
+// Set serial for debug console (to Serial Monitor, default speed 115200)
+#define SerialMon Serial
+// Set serial for AT commands (to SIM800 module)
+#define SerialAT  Serial1
+
+// Define the serial console for debug prints, if needed
+ #define DUMP_AT_COMMANDS
+const char simPIN[] = "";
+#ifdef DUMP_AT_COMMANDS
+ 
+  StreamDebugger debugger(SerialAT, SerialMon);
+  TinyGsm modem(debugger);
+#else
+  TinyGsm modem(SerialAT);
+#endif
+
+#define IP5306_ADDR          0x75
+#define IP5306_REG_SYS_CTL0  0x00
+
+//==== SERVIDOR api
+WebServer server(80);
+
+// === configuracoes do wiFi ==================================
+WiFiManager wifiManager;//Objeto de manipulação do wi-fi
+ void saveConfigCallback (); 
+ void configModeCallback (WiFiManager *myWiFiManager);
+//=============================================================
+
+// configuracao display ================================
+ 
+//                RS,EN,D4,D5,D6,D7
+// LiquidCrystal lcd(14,12,34,35,32,33);
+
+
+ String Mac="";
+
+ int contar=0;
+// JSON data buffer
+StaticJsonDocument<250> jsonDocument;
+char buffer[250];
+
+ //Inicialização dos métodos ================
+  void conectaWiFi();
+  void setup_routing();
+  void carregaMac();
+ // void displayAbertura();
+
+void setup() {
+  // Set console baud rate
+  SerialMon.begin(115200);
+
+  conectaWiFi();
+
+   setup_routing(); 
+  pinMode(13,INPUT);
+  pinMode(25,OUTPUT);
+  // Set modem reset, enable, power pins
+  pinMode(MODEM_PWKEY, OUTPUT);
+  pinMode(MODEM_RST, OUTPUT);
+  pinMode(MODEM_POWER_ON, OUTPUT);
+  digitalWrite(MODEM_PWKEY, LOW);
+  digitalWrite(MODEM_RST, HIGH);
+  digitalWrite(MODEM_POWER_ON, HIGH);
+  digitalWrite(25,LOW);
+  // Set GSM module baud rate and UART pins
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  delay(3000);
+
+  // Restart SIM800 module, it takes quite some time
+  // To skip it, call init() instead of restart()
+  SerialMon.println("Initializing modem...");
+  modem.restart();
+  // use modem.init() if you don't need the complete restart
+
+  // Unlock your SIM card with a PIN if needed
+  if (strlen(simPIN) && modem.getSimStatus() != 3 ) {
+    modem.simUnlock(simPIN);
+  }
+   
+  //callback para quando entra em modo de configuração AP
+  wifiManager.setAPCallback(configModeCallback); 
+  //callback para quando se conecta em uma rede, ou seja, quando passa a trabalhar em modo estação
+  wifiManager.setSaveConfigCallback(saveConfigCallback); 
+  //  lcd.begin(16, 2);
+ //  lcd.clear();
+  
+  //carregaMac();
+}
+
+int Inicia=0;
+void loop() {
+  conectaWiFi();
+/*
+if (Inicia==0)
+   { 
+  //  Serial.print("Chama Abertura");
+    displayAbertura();
+ 
+   delay(3000);
+    Inicia=1;
+   }
+
+*/
+
+
+ server.handleClient();	
+
+
+ //  contar =contar+1;
+   //  delay(1000);
+}
+
+
+
+ void conectaWiFi(){
+
+   //Se o botão for pressionado
+   if (digitalRead(13) == LOW) {
+ 
+      digitalWrite(25,LOW);
+      wifiManager.resetSettings();       //Apaga rede salva anteriormente
+      if(!wifiManager.startConfigPortal("ITECHMED - SMS", "12345678") ){ //Nome da Rede e Senha gerada pela ESP
+        SerialMon.println("Falha ao conectar"); //Se caso não conectar na rede mostra mensagem de falha
+        delay(2000);
+        ESP.restart(); //Reinicia ESP após não conseguir conexão na rede
+      }
+      else{       //Se caso conectar 
+        SerialMon.println("Conectado na Rede!!!");
+        ESP.restart(); //Reinicia ESP após conseguir conexão na rede 
+      } 
+      delay(2000);
+   }
+ 
+   if(WiFi.status()== WL_CONNECTED){ 
+     delay(500);
+    //Se conectado na rede
+      digitalWrite(25,HIGH); //Acende LED AZUL
+
+   }
+   else{ //se não conectado na rede
+      digitalWrite(25,LOW); //Apaga LED AZUL
+        delay(500);
+      wifiManager.autoConnect();//Função para se autoconectar na rede
+   }  
+
+
+
+
+ }
+
+ void carregaMac(){
+    Mac = WiFi.macAddress();
+    Mac.replace(":","");
+ }
+/*
+ void displayAbertura(){
+  //  Serial.print("Abertura");
+    lcd.clear();
+    lcd.print("ITECHMED - SMS");
+    lcd.setCursor(0,1 );
+    lcd.print("Mac:");
+    lcd.print(Mac);
+ }
+*/
+
+//callback que indica que o ESP entrou no modo AP
+void configModeCallback (WiFiManager *myWiFiManager) {  
+   SerialMon.println("Entrou no modo de configuração");
+  SerialMon.println(WiFi.softAPIP()); //imprime o IP do AP
+  SerialMon.println(myWiFiManager->getConfigPortalSSID()); //imprime o SSID criado da rede
+}
+//Callback que indica que salvamos uma nova rede para se conectar (modo estação)
+void saveConfigCallback () {
+   SerialMon.println("Configuração salva");
+}
+
+
+void handlePost() {
+  if (server.hasArg("plain") == false) {
+    //handle error here
+  }
+  String body = server.arg("plain");
+  deserializeJson(jsonDocument, body);
+  
+  // Get RGB components
+   String tel = jsonDocument["telefone"];
+   String msg = jsonDocument["msg"];
+ if (tel != "" && msg!="")
+ {
+  SerialMon.println("SMS tel:"+ tel +" MSG:"+msg);
+    if(modem.sendSMS(tel, msg)){
+      SerialMon.println(msg);
+      smsSent = true;
+       server.send(200, "application/json", "OK");
+    }
+    else{
+      SerialMon.println("SMS failed to send");
+       server.send(400, "application/json", "falha");
+    } 
+ }
+ 
+  // Respond to the client
+ 
+}
+
+
+void setup_routing() {	 	 
+ // server.on("/temperature", getTemperature);	 	 
+
+ // server.on("/humidity", getHumidity);	 	 
+
+  server.on("/sms", HTTP_POST, handlePost);	 	 
+  	 	 
+  // start server	 	 
+  server.begin();	 	 
+}
