@@ -148,7 +148,7 @@ if (Inicia==0)
  
       digitalWrite(25,LOW);
       wifiManager.resetSettings();       //Apaga rede salva anteriormente
-      if(!wifiManager.startConfigPortal("ITECHMED - SMS", "12345678") ){ //Nome da Rede e Senha gerada pela ESP
+      if(!wifiManager.startConfigPortal("TESTE - SMS", "12345678") ){ //Nome da Rede e Senha gerada pela ESP
         SerialMon.println("Falha ao conectar"); //Se caso não conectar na rede mostra mensagem de falha
         delay(2000);
         ESP.restart(); //Reinicia ESP após não conseguir conexão na rede
