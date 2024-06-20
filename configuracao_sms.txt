@@ -1,6 +1,6 @@
 void conectaWiFi() {
-    const char* ssid = "ITECHMED"; // Substitua pelo SSID da sua rede
-    const char* password = "1t3chm3d@2021"; // Substitua pela senha da sua rede
+    const char* ssid = "XXXXXXX"; // Substitua pelo SSID da sua rede
+    const char* password = "XXXXXXXXX"; // Substitua pela senha da sua rede
 
     // Se o botão for pressionado, prossegue com o WiFiManager
     // Isso é útil para reconfiguração
